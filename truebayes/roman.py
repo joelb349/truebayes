@@ -14,95 +14,104 @@ from truebayes.geometry import qdim, xstops
 
 # load the standard ROMAN network
 
-layers = [4,8,16,32,64,128] + [256] * 20 + [241]
+# layers = [4,8,16,32,64,128] + [256] * 20 + [241]
 
-alvin = makenet(layers, softmax=False)
+# alvin = makenet(layers, softmax=False)
 
-ar, ai = alvin(), alvin()
+# ar, ai = alvin(), alvin()
 
-datadir = pkg_resources.resource_filename(__name__, 'data/')
+# datadir = pkg_resources.resource_filename(__name__, 'data/')
 
-if torch.cuda.is_available():
-  ar.load_state_dict(torch.load(os.path.join(datadir, 'roman/ar-state.pt')))
-  ai.load_state_dict(torch.load(os.path.join(datadir, 'roman/ai-state.pt')))
-else:
-  ar.load_state_dict(torch.load(os.path.join(datadir, 'roman/ar-state.pt'), map_location=torch.device('cpu')))
-  ai.load_state_dict(torch.load(os.path.join(datadir, 'roman/ai-state.pt'), map_location=torch.device('cpu')))
+# if torch.cuda.is_available():
+#   ar.load_state_dict(torch.load(os.path.join(datadir, 'roman/ar-state.pt')))
+#   ai.load_state_dict(torch.load(os.path.join(datadir, 'roman/ai-state.pt')))
+# else:
+#   ar.load_state_dict(torch.load(os.path.join(datadir, 'roman/ar-state.pt'), map_location=torch.device('cpu')))
+#   ai.load_state_dict(torch.load(os.path.join(datadir, 'roman/ai-state.pt'), map_location=torch.device('cpu')))
 
-ar.eval()
-ai.eval()
+# ar.eval()
+# ai.eval()
+
+region = [[1, 10], [30, 45]]
+
+varx = ['M', 'tc']
+
+## Produce Training Signals and Train Neural Network 
 
 
-def syntrain(snr=[8,12], size=100000, varx='Mc', nets=(ar, ai), seed=None, noise=1, varall=False,
-             region=[[0.2,0.5], [0.2,0.25], [-1,1], [-1,1]], single=True):
-  """Makes a training set using the ROMAN NN. It returns labels (for `varx`,
-  or for all if `varall=True`), indicator vectors, and ROM coefficients
-  (with `snr` and `noise`). Note that the coefficients are kept on the GPU.
-  Parameters are sampled randomly within `region`."""
+def syntrain(size, region=region, varx=varx, seed=None, varall=False,
+                single=True, noise=0):
+    
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu:0'
+    
+    
+    if seed is not None:
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+    
+    with torch.no_grad():
+        xs = torch.zeros((size, len(region)), dtype=torch.float, device=device)
 
-  device = 'cuda:0' if torch.cuda.is_available() else 'cpu:0'
+        for i, r in enumerate(region):
+            xs[:,i] = r[0] + (r[1] - r[0])*torch.rand((size,), dtype=torch.float, device=device)
 
-  if seed is not None:
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+        xs_1 = xs.detach().cpu().double().numpy()
+        
+        signal = np.apply_along_axis(sinc_f, 1, xs_1)
+        
+        signal_r, signal_i = numpy2cuda(signal), 0
+        
+        alphas = torch.zeros((size, 500), dtype=torch.float if single else torch.double, device=device)
+        
+        ##Normalize the signal elements
+        normalize = torch.sqrt(torch.sum(signal_r*signal_r + signal_i*signal_i, dim=1))
+        
+        ##Vary the signal amplitudes
+        amp = [8,12]
+        const = numpy2cuda(np.random.uniform(*amp,size=size))
 
-  with torch.no_grad():
-    xs = torch.zeros((size,4), dtype=torch.float, device=device)
+        ##Add noise and normalize
+        alphas[:,:] = const[:,np.newaxis]*signal_r/normalize[:,np.newaxis] + (noise*torch.randn((size,500), device=device))
+        ##alphas[:,1::2] = const[:, np.newaxis]*(signal_i / normalize[:,np.newaxis]) + (noise*torch.randn((size,133), device=device))
+        
+    xr = np.zeros((size,len(region)), 'd')
+    xr = xs.detach().cpu().double().numpy()
+    
+    del xs, signal_r, signal_i 
     
     for i,r in enumerate(region):
-      xs[:,i] = r[0] + (r[1] - r[0])*torch.rand((size,), dtype=torch.float, device=device)
+        xr[:,i] = (xr[:,i] - r[0]) / (r[1] - r[0])    
     
-    # handle banks with reduced dimensionality 
-    for i in range(len(region),4):
-      xs[:,i] = 0.0
+    if isinstance(varx, list):
+        ix = ['M','tc'].index(varx[0])
+        jx = ['M','tc'].index(varx[1])    
 
-    snrs = numpy2cuda(np.random.uniform(*snr,size=size))
-      
-    alphas = torch.zeros((size, 241*2), dtype=torch.float if single else torch.double, device=device)
+        i = np.digitize(xr[:,ix], xstops, False) - 1
+        i[i == -1] = 0; i[i == qdim] = qdim - 1
+        px = np.zeros((size, qdim), 'd'); px[range(size), i] = 1
 
-    alphar, alphai = nets[0](xs), nets[1](xs)
-    norm = torch.sqrt(torch.sum(alphar*alphar + alphai*alphai,dim=1))
- 
-    alphas[:,0::2] = snrs[:,np.newaxis] * alphar / norm[:,np.newaxis] + noise * torch.randn((size,241), device=device)
-    alphas[:,1::2] = snrs[:,np.newaxis] * alphai / norm[:,np.newaxis] + noise * torch.randn((size,241), device=device)
-  
-  xr = np.zeros((size, 5),'d')
-  xr[:,:4] = xs.detach().cpu().double().numpy()
-  xr[:,4] = snrs.detach().cpu()
-  
-  del xs, alphar, alphai, norm
+        j = np.digitize(xr[:,jx], xstops, False) - 1
+        j[j == -1] = 0; j[j == qdim] = qdim - 1
+        py = np.zeros((size, qdim), 'd'); py[range(size), j] = 1
 
-  # normalize (for provided regions)
-  for i, r in enumerate(region):
-    xr[:,i] = (xr[:,i] - r[0]) / (r[1] - r[0])
-
-  if isinstance(varx, list):
-    ix = ['Mc','nu','chi1','chi2'].index(varx[0])
-    jx = ['Mc','nu','chi1','chi2'].index(varx[1])    
-
-    i = np.digitize(xr[:,ix], xstops, False) - 1
-    i[i == -1] = 0; i[i == qdim] = qdim - 1
-    px = np.zeros((size, qdim), 'd'); px[range(size), i] = 1
-
-    j = np.digitize(xr[:,jx], xstops, False) - 1
-    j[j == -1] = 0; j[j == qdim] = qdim - 1
-    py = np.zeros((size, qdim), 'd'); py[range(size), j] = 1
-
-    if varall:
-      return xr, np.einsum('ij,ik->ijk', px, py), alphas
+        if varall:
+            print(np.einsum('ij,ik->ijk', px, py), xr)
+            return xr, np.einsum('ij,ik->ijk', px, py), alphas
+        else:
+            return xr[:,[ix,jx]], np.einsum('ij,ik->ijk', px, py), alphas    
     else:
-      return xr[:,[ix,jx]], np.einsum('ij,ik->ijk', px, py), alphas    
-  else:
-    ix = ['Mc','nu','chi1','chi2'].index(varx)
+        ix = ['M','tc'].index(varx)
+
+        i = np.digitize(xr[:,ix], xstops, False) - 1
+        i[i == -1] = 0; i[i == qdim] = qdim - 1
+        px = np.zeros((size, qdim), 'd'); px[range(size), i] = 1
   
-    i = np.digitize(xr[:,ix], xstops, False) - 1
-    i[i == -1] = 0; i[i == qdim] = qdim - 1
-    px = np.zeros((size, qdim), 'd'); px[range(size), i] = 1
-  
-    if varall:
-      return xr, px, alphas
-    else:
-      return xr[:,ix], px, alphas
+        if varall:
+            print(xr, px)
+            return xr, px, alphas
+        else:
+            print(px)
+            return xr[:,ix], px, alphas
 
 
 def syntrainer(net, syntrain, lossfunction=None, iterations=300, 
@@ -190,3 +199,31 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
     net.steps += iterations
   else:
     net.steps = iterations
+    
+    
+    
+
+def sinc_f(x):
+    ##Extract parameters for sinc function
+    M = x[0]; tc = x[1]
+    ##All Signals are cut-off to 200s long
+    
+    ##Sinc is symmetric
+    t_cutoff = 400
+
+    N = 2000
+    
+    ##All Signals are cut-off to 200s long
+    ##Index of 200s
+    ind_200 = int(200 / ((2*t_cutoff) / N))
+
+    z = np.arange(-t_cutoff, t_cutoff, 2*t_cutoff/N)
+
+    sine_time = np.linspace(0, t_cutoff, N)
+    y=(z-tc) / M
+    
+    func = np.sinc(y)
+    ##Remove negative values from array
+    z_new = z[z>=0]; func_new = func[-len(z_new):]
+
+    z = z_new[0:ind_200]; func = func_new[0:ind_200]
