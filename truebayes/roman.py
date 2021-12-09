@@ -58,7 +58,8 @@ def syntrain(size, region=region, varx=varx, seed=None, varall=False,
         xs_1 = xs.detach().cpu().double().numpy()
         
         signal = np.apply_along_axis(sinc_f, 1, xs_1)
-        signal_r, signal_i = numpy2cuda(signal), 0
+        print(signal)
+        ##signal_r, signal_i = numpy2cuda(signal), 0
         
         alphas = torch.zeros((size, 500), dtype=torch.float if single else torch.double, device=device)
         
@@ -224,7 +225,7 @@ def sinc_f(x):
     z_new = z[z>=0]; func_new = func[-len(z_new):]
 
     z = z_new[0:ind_200]; func = func_new[0:ind_200]
-    print(func.dtype)
+    
 #     N_f = len(func); timestep = z[1] - z[0]
 
 #     ft = fft(func)[0:N_f//2]
