@@ -224,7 +224,7 @@ def sinc_f(x):
     z_new = z[z>=0]; func_new = func[-len(z_new):]
 
     z = z_new[0:ind_200]; func = func_new[0:ind_200]
-    
+    print(func.dtype)
 #     N_f = len(func); timestep = z[1] - z[0]
 
 #     ft = fft(func)[0:N_f//2]
