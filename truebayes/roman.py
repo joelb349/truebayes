@@ -58,7 +58,7 @@ def syntrain(size, region=region, varx=varx, seed=None, varall=False,
         xs_1 = xs.detach().cpu().double().numpy()
         
         signal = np.apply_along_axis(sinc_f, 1, xs_1)
-        print(signal)
+        print(signal.dtype)
         ##signal_r, signal_i = numpy2cuda(signal), 0
         
         alphas = torch.zeros((size, 500), dtype=torch.float if single else torch.double, device=device)
