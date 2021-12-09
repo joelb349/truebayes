@@ -32,7 +32,7 @@ from truebayes.geometry import qdim, xstops
 # ar.eval()
 # ai.eval()
 
-region = [[1, 10], [30, 45]]
+region = [[1, 4], [20, 25]]
 
 varx = ['M', 'tc']
 
@@ -58,7 +58,7 @@ def syntrain(size, region=region, varx=varx, seed=None, varall=False,
         xs_1 = xs.detach().cpu().double().numpy()
         
         signal = np.apply_along_axis(sinc_f, 1, xs_1)
-        
+        print(signal.dtype)
         signal_r, signal_i = numpy2cuda(signal), 0
         
         alphas = torch.zeros((size, 500), dtype=torch.float if single else torch.double, device=device)
