@@ -32,7 +32,7 @@ from truebayes.geometry import qdim, xstops
 # ar.eval()
 # ai.eval()
 
-region = [[1, 4], [20, 25]]
+region = [[1, 3], [30, 35]]
 
 varx = ['M', 'tc']
 
@@ -117,88 +117,88 @@ def syntrain(size, region=region, varx=varx, seed=None, varall=False,
 def syntrainer(net, syntrain, lossfunction=None, iterations=300, 
                batchsize=None, initstep=1e-3, finalv=1e-5, clipgradient=None, validation=None,
                seed=None, single=True):
-  """Trains network NN against training sets obtained from `syntrain`,
-  iterating at most `iterations`; stops if the derivative of loss
-  (averaged over 20 epochs) becomes less than `finalv`."""
+    """Trains network NN against training sets obtained from `syntrain`,
+    iterating at most `iterations`; stops if the derivative of loss
+    (averaged over 20 epochs) becomes less than `finalv`."""
 
-  if seed is not None:
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
+        torch.manual_seed(seed)
 
-  indicatorloss = 'l' in lossfunction.__annotations__ and lossfunction.__annotations__['l'] == 'indicator'  
-  
-  if validation is not None:
-    raise NotImplementedError
-    
-    vlabels = numpy2cuda(validation[1] if indicatorloss else validation[0], single)
-    vinputs = numpy2cuda(validation[2], single)
-  
-  optimizer = optim.Adam(net.parameters(), lr=initstep)
-
-  training_loss, validation_loss = [], []
-  
-  for epoch in range(iterations):
-    t0 = time.time()
-
-    xtrue, indicator, inputs = syntrain()
-    labels = numpy2cuda(indicator if indicatorloss else xtrue, single)
-
-    if batchsize is None:
-      batchsize = inputs.shape[0]
-    batches = inputs.shape[0] // batchsize
-
-    averaged_loss = 0.0    
-    
-    for i in range(batches):
-      # zero the parameter gradients
-      optimizer.zero_grad()
-
-      # forward + backward + optimize
-      outputs = net(inputs[i*batchsize:(i+1)*batchsize])
-      loss = lossfunction(outputs, labels[i*batchsize:(i+1)*batchsize])
-      loss.backward()
-      
-      if clipgradient is not None:
-        torch.nn.utils.clip_grad_norm_(net.parameters(), clipgradient)
-      
-      optimizer.step()
-
-      # print statistics
-      averaged_loss += loss.item()
-
-    training_loss.append(averaged_loss/batches)
+    indicatorloss = 'l' in lossfunction.__annotations__ and lossfunction.__annotations__['l'] == 'indicator'  
 
     if validation is not None:
-      loss = lossfunction(net(vinputs), vlabels)
-      validation_loss.append(loss.detach().cpu().item())
+        raise NotImplementedError
 
-    if epoch == 1:
-      print("One epoch = {:.1f} seconds.".format(time.time() - t0))
+        vlabels = numpy2cuda(validation[1] if indicatorloss else validation[0], single)
+        vinputs = numpy2cuda(validation[2], single)
 
-    if epoch % 50 == 0:
-      print(epoch,training_loss[-1],validation_loss[-1] if validation is not None else '')
+    optimizer = optim.Adam(net.parameters(), lr=initstep)
 
-    try:
-      if len(training_loss) > iterations/10:
-        training_rate = np.polyfit(range(20), training_loss[-20:], deg=1)[0]
-        if training_rate < 0 and training_rate > -finalv:
-          print(f"Terminating at epoch {epoch} because training loss stopped improving sufficiently: rate = {training_rate}")
-          break
+    training_loss, validation_loss = [], []
 
-      if len(validation_loss) > iterations/10:
-        validation_rate = np.polyfit(range(20), validation_loss[-20:], deg=1)[0]        
-        if validation_rate > 0:
-          print(f"Terminating at epoch {epoch} because validation loss started worsening: rate = {validation_rate}")
-          break
-    except:
-      pass
-          
-  print("Final",training_loss[-1],validation_loss[-1] if validation is not None else '')
+    for epoch in range(iterations):
+        t0 = time.time()
+
+        xtrue, indicator, inputs = syntrain()
+        labels = numpy2cuda(indicator if indicatorloss else xtrue, single)
+
+        if batchsize is None:
+            batchsize = inputs.shape[0]
+        batches = inputs.shape[0] // batchsize
+
+        averaged_loss = 0.0    
+    
+        for i in range(batches):
+        # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = net(inputs[i*batchsize:(i+1)*batchsize])
+            loss = lossfunction(outputs, labels[i*batchsize:(i+1)*batchsize])
+            loss.backward()
       
-  if hasattr(net,'steps'):
-    net.steps += iterations
-  else:
-    net.steps = iterations
+            if clipgradient is not None:
+                torch.nn.utils.clip_grad_norm_(net.parameters(), clipgradient)
+      
+            optimizer.step()
+
+            # print statistics
+            averaged_loss += loss.item()
+
+        training_loss.append(averaged_loss/batches)
+
+        if validation is not None:
+            loss = lossfunction(net(vinputs), vlabels)
+            validation_loss.append(loss.detach().cpu().item())
+
+        if epoch == 1:
+            print("One epoch = {:.1f} seconds.".format(time.time() - t0))
+
+        if epoch % 50 == 0:
+            print(epoch,training_loss[-1],validation_loss[-1] if validation is not None else '')
+
+        try:
+            if len(training_loss) > iterations/10:
+                training_rate = np.polyfit(range(20), training_loss[-20:], deg=1)[0]
+                if training_rate < 0 and training_rate > -finalv:
+                    print(f"Terminating at epoch {epoch} because training loss stopped improving sufficiently: rate = {training_rate}")
+                    break
+
+            if len(validation_loss) > iterations/10:
+                validation_rate = np.polyfit(range(20), validation_loss[-20:], deg=1)[0]        
+                if validation_rate > 0:
+                    print(f"Terminating at epoch {epoch} because validation loss started worsening: rate = {validation_rate}")
+                    break
+        except:
+            pass
+          
+    print("Final",training_loss[-1],validation_loss[-1] if validation is not None else '')
+
+    if hasattr(net,'steps'):
+        net.steps += iterations
+    else:
+        net.steps = iterations
     
     
 def sinc_f(x):
@@ -225,8 +225,5 @@ def sinc_f(x):
     z_new = z[z>=0]; func_new = func[-len(z_new):]
 
     z = z_new[0:ind_200]; func = func_new[0:ind_200]
-    
-#     N_f = len(func); timestep = z[1] - z[0]
 
-#     ft = fft(func)[0:N_f//2]
     return func
