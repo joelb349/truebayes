@@ -199,7 +199,7 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
         net.steps += iterations
     else:
         net.steps = iterations
-    
+    return training_loss
     
 def sinc_f(x):
     ##Extract parameters for sinc function
