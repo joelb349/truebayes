@@ -94,7 +94,7 @@ def plotgauss(xtrue, indicator, inputs, net=None, like=None, varx=None, twodim=F
 
     # show true x
     if xtrue.ndim == 2:
-      ix = ['Mc','nu','chi1','chi2'].index(varx)
+      ix = ['Mc','tc'].index(varx)
       pp.axvline(xtrue[istart+i, ix], color='C2', ls=':')
     else:
       pp.axvline(xtrue[istart+i], color='C2', ls=':')
