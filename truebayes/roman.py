@@ -32,14 +32,12 @@ from truebayes.geometry import qdim, xstops
 # ar.eval()
 # ai.eval()
 
-region = [[1, 3], [30, 35]]
-
 varx = ['M', 'tc']
 
 ## Produce Training Signals and Train Neural Network 
 
 
-def syntrain(size, region=region, varx=varx, seed=None, varall=False,
+def syntrain(size, region=None, varx=varx, seed=None, varall=False,
                 single=True, noise=0):
     
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu:0'
