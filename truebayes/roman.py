@@ -201,7 +201,7 @@ def sinc_f(x):
     M = x[0]; tc = x[1]
     ##All Signals are cut-off to 200s long
     
-    t_cutoff = 200
+    t_cutoff = 150
 
     N = 500
 
