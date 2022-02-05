@@ -143,26 +143,34 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
         batches = inputs.shape[0] // batchsize
 
         averaged_loss = 0.0    
-    
+        
         for i in range(batches):
         # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
             outputs = net(inputs[i*batchsize:(i+1)*batchsize])
-            loss = lossfunction(outputs, labels[i*batchsize:(i+1)*batchsize])
+            ##Get variance of each parameter
+            sigma_Mc, sigma_tc = outputs[:,1::6], outputs[:,3::6]
+            
+            loss, dMc, dtc = lossfunction(outputs, labels[i*batchsize:(i+1)*batchsize])
             loss.backward()
       
             if clipgradient is not None:
                 torch.nn.utils.clip_grad_norm_(net.parameters(), clipgradient)
-      
+            
             optimizer.step()
+            
+            ##Calculate accuracy of each epoch
+            correct += (abs(dMc) <= 2*abs(sigma_Mc) and abs(dtc) <= 2*abs(sigma_tc)).float().sum()
 
             # print statistics
             averaged_loss += loss.item()
 
         training_loss.append(averaged_loss/batches)
-
+        
+        accuracy = 100 * correct / batchsize
+        
         if validation is not None:
             loss = lossfunction(net(vinputs), vlabels)
             validation_loss.append(loss.detach().cpu().item())
@@ -170,8 +178,8 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
         if epoch == 1:
             print("One epoch = {:.1f} seconds.".format(time.time() - t0))
 
-        if epoch % 50 == 0:
-            print(epoch,training_loss[-1],validation_loss[-1] if validation is not None else '')
+        if epoch % 10 == 0:
+            print("Epoch {}/{}, Loss: {:.3f}, Accuracy: {:.3f}".format(epoch, iterations, training_loss[-1], accuracy))
 
         try:
             if len(training_loss) > iterations/10:

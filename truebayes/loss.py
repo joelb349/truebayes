@@ -82,7 +82,7 @@ def kllossGn2(o, l: 'xtrue'):
   weight = torch.softmax(o[:,5::6], dim=1)
    
   # omitting the sqrt(4*math*pi) since it's common to all templates
-  return -torch.mean(torch.logsumexp(torch.log(weight) - 0.5*(Fxx*dx*dx + Fyy*dy*dy + 2*Fxy*dx*dy) + 0.5*torch.log(Fxx*Fyy - Fxy*Fxy), dim=1))
+  return -torch.mean(torch.logsumexp(torch.log(weight) - 0.5*(Fxx*dx*dx + Fyy*dy*dy + 2*Fxy*dx*dy) + 0.5*torch.log(Fxx*Fyy - Fxy*Fxy), dim=1)), dx, dy
 
 
 def netmeanGn2(inputs, net=None, single=True):
