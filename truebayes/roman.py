@@ -53,9 +53,9 @@ def syntrain(size, region=None, varx=varx, seed=None, varall=False,
         for i, r in enumerate(region):
             xs[:,i] = r[0] + (r[1] - r[0])*torch.rand((size,), dtype=torch.float, device=device)
 
-        xs_1 = xs.detach().cpu().double().numpy()
+        xr = xs.detach().cpu().double().numpy()
         
-        signal = np.apply_along_axis(sinc_f, 1, xs_1)
+        signal = np.apply_along_axis(sinc_f, 1, xr)
         
         signal_r, signal_i = numpy2cuda(signal), 0
         
@@ -71,9 +71,6 @@ def syntrain(size, region=None, varx=varx, seed=None, varall=False,
         ##Add noise and normalize
         alphas[:,:] = const[:,np.newaxis]*signal_r/normalize[:,np.newaxis] + (noise*torch.randn((size,500), device=device))
         ##alphas[:,1::2] = const[:, np.newaxis]*(signal_i / normalize[:,np.newaxis]) + (noise*torch.randn((size,133), device=device))
-        
-    xr = np.zeros((size,len(region)), 'd')
-    xr = xs.detach().cpu().double().numpy()
     
     del xs, signal_r, signal_i 
     
@@ -204,24 +201,14 @@ def sinc_f(x):
     M = x[0]; tc = x[1]
     ##All Signals are cut-off to 200s long
     
-    ##Sinc is symmetric
-    t_cutoff = 400
+    t_cutoff = 200
 
-    N = 2000
-    
-    ##All Signals are cut-off to 200s long
-    ##Index of 200s
-    ind_200 = int(200 / ((2*t_cutoff) / N))
+    N = 500
 
-    z = np.arange(-t_cutoff, t_cutoff, 2*t_cutoff/N)
+    z = np.linspace(-t_cutoff, t_cutoff, N)
 
-    sine_time = np.linspace(0, t_cutoff, N)
     y=(z-tc) / M
-    
+
     func = np.sinc(y)
-    ##Remove negative values from array
-    z_new = z[z>=0]; func_new = func[-len(z_new):]
 
-    z = z_new[0:ind_200]; func = func_new[0:ind_200]
-
-    return func
+    return func, y
