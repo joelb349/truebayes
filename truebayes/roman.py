@@ -133,6 +133,7 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
     training_loss, validation_loss = [], []
 
     for epoch in range(iterations):
+        correct = 0
         t0 = time.time()
 
         xtrue, indicator, inputs = syntrain()
