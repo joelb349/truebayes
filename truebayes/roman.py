@@ -211,4 +211,4 @@ def sinc_f(x):
 
     func = np.sinc(y)
 
-    return func, y
+    return func
