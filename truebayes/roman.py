@@ -3,6 +3,7 @@ import time
 import pkg_resources
 
 import numpy as np
+import math
 
 import torch
 import torch.optim as optim
@@ -151,21 +152,29 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
 
             # forward + backward + optimize
             outputs = net(inputs[i*batchsize:(i+1)*batchsize])
-            ##Get variance of each parameter
+            
+            ##Calculate standard deviation of each parameter
             sigma_Mc, sigma_tc = outputs[:,1::6], outputs[:,3::6]
+            Fxx, Fyy = sigma_Mc**2, sigma_tc**2
+            Fxy = torch.arctan(outputs[:,4::6]) / (0.5*math.pi) * sigma_Mc * sigma_tc
+            
+            sigma_Mc, sigma_tc = Fxx / (Fxx*Fyy - Fxy*Fxy), Fyy / (Fxx*Fyy - Fxy*Fxy)
             
             loss, dMc, dtc = lossfunction(outputs, labels[i*batchsize:(i+1)*batchsize])
             loss.backward()
       
             if clipgradient is not None:
                 torch.nn.utils.clip_grad_norm_(net.parameters(), clipgradient)
+            ##Calculate standard deviation
+            
             
             optimizer.step()
-            
-            ##Calculate accuracy of each epoch
-            correct += (abs(dMc) <= 2*abs(sigma_Mc) and abs(dtc) <= 2*abs(sigma_tc)).float().sum()
+            correct += (torch.BoolTensor(abs(dMc) <= 0.2) & torch.BoolTensor(abs(dtc) <= 0.2)).count_nonzero().item()
 
+            ##Calculate accuracy of each epoch
+            ##correct += (abs(dMc) <= 2*abs(sigma_Mc) and abs(dtc) <= 2*abs(sigma_tc)).nonzero()
             # print statistics
+                        
             averaged_loss += loss.item()
 
         training_loss.append(averaged_loss/batches)
