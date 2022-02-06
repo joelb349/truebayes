@@ -217,7 +217,7 @@ def sinc_f(x):
     
     t_cutoff = 150
 
-    N = 250
+    N = 500
 
     z = np.linspace(-t_cutoff, t_cutoff, N)
 
