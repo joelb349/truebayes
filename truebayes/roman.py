@@ -162,7 +162,10 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
             ##Calculate standard deviation
            
             optimizer.step()
-            correct += (torch.BoolTensor(abs(dMc) <= 0.2, device=device) & torch.BoolTensor(abs(dtc) <= 0.2), device=device).count_nonzero().item()
+            if device=='cpu:0':
+                correct += (torch.BoolTensor(abs(dMc) <= 0.2) & torch.BoolTensor(abs(dtc) <= 0.2)).count_nonzero().item()
+            else:
+                correct += (torch.cuda.BoolTensor(abs(dMc) <= 0.2) & torch.cuda.BoolTensor(abs(dtc) <= 0.2)).count_nonzero().item()
 
             ##Calculate accuracy of each epoch
             ##correct += (abs(dMc) <= 2*abs(sigma_Mc) and abs(dtc) <= 2*abs(sigma_tc)).nonzero()
