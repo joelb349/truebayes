@@ -113,6 +113,7 @@ def syntrain(size, region=None, varx=varx, seed=None, varall=False,
 def syntrainer(net, syntrain, lossfunction=None, iterations=300, 
                batchsize=None, initstep=1e-3, finalv=1e-5, clipgradient=None, validation=None,
                seed=None, single=True):
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu:0'
     """Trains network NN against training sets obtained from `syntrain`,
     iterating at most `iterations`; stops if the derivative of loss
     (averaged over 20 epochs) becomes less than `finalv`."""
@@ -153,23 +154,15 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
             # forward + backward + optimize
             outputs = net(inputs[i*batchsize:(i+1)*batchsize])
             
-            ##Calculate standard deviation of each parameter
-            sigma_Mc, sigma_tc = outputs[:,1::6], outputs[:,3::6]
-            Fxx, Fyy = sigma_Mc**2, sigma_tc**2
-            Fxy = torch.arctan(outputs[:,4::6]) / (0.5*math.pi) * sigma_Mc * sigma_tc
-            
-            sigma_Mc, sigma_tc = Fxx / (Fxx*Fyy - Fxy*Fxy), Fyy / (Fxx*Fyy - Fxy*Fxy)
-            
             loss, dMc, dtc = lossfunction(outputs, labels[i*batchsize:(i+1)*batchsize])
             loss.backward()
       
             if clipgradient is not None:
                 torch.nn.utils.clip_grad_norm_(net.parameters(), clipgradient)
             ##Calculate standard deviation
-            
-            
+           
             optimizer.step()
-            correct += (torch.BoolTensor(abs(dMc) <= 0.2) & torch.BoolTensor(abs(dtc) <= 0.2)).count_nonzero().item()
+            correct += (torch.BoolTensor(abs(dMc) <= 0.2, device=device) & torch.BoolTensor(abs(dtc) <= 0.2), device=device).count_nonzero().item()
 
             ##Calculate accuracy of each epoch
             ##correct += (abs(dMc) <= 2*abs(sigma_Mc) and abs(dtc) <= 2*abs(sigma_tc)).nonzero()
