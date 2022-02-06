@@ -60,7 +60,7 @@ def syntrain(size, region=None, varx=varx, seed=None, varall=False,
         
         signal_r, signal_i = numpy2cuda(signal), 0
         
-        alphas = torch.zeros((size, 250), dtype=torch.float if single else torch.double, device=device)
+        alphas = torch.zeros((size, 500), dtype=torch.float if single else torch.double, device=device)
         
         ##Normalize the signal elements
         normalize = torch.sqrt(torch.sum(signal_r*signal_r + signal_i*signal_i, dim=1))
@@ -70,7 +70,7 @@ def syntrain(size, region=None, varx=varx, seed=None, varall=False,
         const = numpy2cuda(np.random.uniform(*amp,size=size))
 
         ##Add noise and normalize
-        alphas[:,:] = const[:,np.newaxis]*signal_r/normalize[:,np.newaxis] + (noise*torch.randn((size,250), device=device))
+        alphas[:,:] = const[:,np.newaxis]*signal_r/normalize[:,np.newaxis] + (noise*torch.randn((size,500), device=device))
         ##alphas[:,1::2] = const[:, np.newaxis]*(signal_i / normalize[:,np.newaxis]) + (noise*torch.randn((size,133), device=device))
     
     del xs, signal_r, signal_i 
