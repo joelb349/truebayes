@@ -112,7 +112,7 @@ def syntrain(size, region=None, varx=varx, seed=None, varall=False,
 
 def syntrainer(net, syntrain, lossfunction=None, iterations=300, 
                batchsize=None, initstep=1e-3, finalv=1e-5, clipgradient=None, validation=None,
-               seed=None, single=True):
+               seed=None, single=True, retrain=None, checkpoint=None):
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu:0'
     """Trains network NN against training sets obtained from `syntrain`,
     iterating at most `iterations`; stops if the derivative of loss
@@ -129,8 +129,11 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
 
         vlabels = numpy2cuda(validation[1] if indicatorloss else validation[0], single)
         vinputs = numpy2cuda(validation[2], single)
-
+    
     optimizer = optim.Adam(net.parameters(), lr=initstep)
+    
+    if retrain==True:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     training_loss, validation_loss = [], []
 
