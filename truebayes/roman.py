@@ -133,7 +133,7 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
     optimizer = optim.Adam(net.parameters(), lr=initstep)
     
     if retrain==True:
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
         net.train()
 
     training_loss, validation_loss = [], []
