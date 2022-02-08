@@ -134,6 +134,7 @@ def syntrainer(net, syntrain, lossfunction=None, iterations=300,
     
     if retrain==True:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        net.train()
 
     training_loss, validation_loss = [], []
 
